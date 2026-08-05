@@ -14,6 +14,7 @@
     <div id="toast" class="luxury-toast">Added to cart</div>
     <div id="successToast" class="success-toast"> Ordered Successfully! We will contact you soon.</div>
 
+    <!-- Navbar -->
     <nav class="navbar sticky-top p-3">
         <div class="container bg-white rounded-pill shadow-sm py-2 px-4">
             <a class="navbar-brand fw-bold text-dark" href="#" style="letter-spacing:4px">Kareem Store</a>
@@ -24,15 +25,108 @@
         </div>
     </nav>
 
+    <!-- Search & Sort Controls -->
     <div class="container mt-4">
-        <input type="text" id="searchInput" class="form-control rounded-pill border-0 shadow-sm p-3"
-            placeholder="Search products..." onkeyup="filterPerfumes()">
+        <div class="row g-2">
+            <div class="col-md-8">
+                <input type="text" id="searchInput" class="form-control rounded-pill border-0 shadow-sm p-3"
+                    placeholder="Search products..." onkeyup="filterAndSortProducts()">
+            </div>
+            <div class="col-md-4">
+                <select id="sortInput" class="form-select rounded-pill border-0 shadow-sm p-3" onchange="filterAndSortProducts()">
+                    <option value="default">Sort by: Default</option>
+                    <option value="rating-desc">Rating: High to Low ★</option>
+                    <option value="rating-asc">Rating: Low to High ☆</option>
+                    <option value="price-asc">Price: Low to High</option>
+                    <option value="price-desc">Price: High to Low</option>
+                    <option value="name-asc">Name: A to Z</option>
+                    <option value="name-desc">Name: Z to A</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Dynamic Category Filter Buttons -->
+        <div class="d-flex flex-wrap gap-2 mt-3" id="category-filters">
+            <button class="btn btn-dark rounded-pill px-4 btn-sm active-category" onclick="selectCategory('All', this)">All</button>
+        </div>
+
+        <!-- Dynamic Sub-Filters (Color & Phone Type / Model) -->
+        <div class="row g-2 mt-2" id="sub-filters-container">
+            <div class="col-6 col-md-4">
+                <select id="colorFilter" class="form-select form-select-sm rounded-pill border-0 shadow-sm px-3 py-2 bg-white" onchange="filterAndSortProducts()">
+                    <option value="All">All Colors</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-4">
+                <select id="phoneTypeFilter" class="form-select form-select-sm rounded-pill border-0 shadow-sm px-3 py-2 bg-white" onchange="filterAndSortProducts()">
+                    <option value="All">All Phone Types / Models</option>
+                </select>
+            </div>
+        </div>
     </div>
 
+    <!-- Product Grid -->
     <div class="container my-5">
         <div class="row g-3" id="product-list"></div>
     </div>
 
+    <!-- Product Details Modal -->
+    <div class="modal fade" id="productModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 rounded-5 overflow-hidden">
+                <div class="modal-body p-4 text-center">
+                    <img id="modal-img" src="" class="img-fluid rounded-4 mb-3" style="max-height: 280px; object-fit: cover; width: 100%;">
+                    <div class="d-flex justify-content-center gap-2 mb-2" id="modal-tags">
+                        <span id="modal-category" class="badge bg-secondary">Category</span>
+                    </div>
+                    <h4 id="modal-name" class="fw-bold mb-1">Product Name</h4>
+                    <p id="modal-price-container" class="mb-2"></p>
+                    
+                    <!-- Visible Average Rating Display -->
+                    <div class="mb-3">
+                        <span id="modal-avg-stars" class="text-warning fs-5"></span>
+                        <span id="modal-rating-text" class="small text-muted ms-1"></span>
+                    </div>
+
+                    <!-- Description & Specs -->
+                    <div class="text-start bg-light p-3 rounded-4 mb-4">
+                        <h6 class="fw-bold small text-uppercase text-muted mb-1">Product Details & Specs</h6>
+                        <p id="modal-desc" class="small mb-0 text-dark" style="white-space: pre-line;">No additional details provided.</p>
+                    </div>
+
+                    <button id="modal-add-btn" class="btn btn-luxury w-100 py-3 rounded-pill mb-4">ADD TO BAG</button>
+
+                    <hr>
+
+                    <!-- Rating & Comment Section (One per customer) -->
+                    <div id="review-form-container" class="text-start bg-cream p-3 rounded-4 mb-4">
+                        <h6 class="fw-bold small text-uppercase text-muted mb-2">Leave a Review</h6>
+                        <div class="mb-2">
+                            <span class="small fw-bold me-2">Your Rating:</span>
+                            <div id="review-stars-input" class="star-rating d-inline-block" style="font-size: 1.4rem; cursor: pointer;">
+                                <span onclick="selectStar(1)" class="star-opt text-secondary">★</span>
+                                <span onclick="selectStar(2)" class="star-opt text-secondary">★</span>
+                                <span onclick="selectStar(3)" class="star-opt text-secondary">★</span>
+                                <span onclick="selectStar(4)" class="star-opt text-secondary">★</span>
+                                <span onclick="selectStar(5)" class="star-opt text-secondary">★</span>
+                            </div>
+                        </div>
+                        <input type="text" id="review-author" class="form-control mb-2 rounded-pill small" placeholder="Your Name (Optional)">
+                        <textarea id="review-comment" class="form-control mb-2 rounded-4 small" rows="2" placeholder="Why is this product good or bad? (Required)"></textarea>
+                        <button id="submit-review-btn" class="btn btn-dark btn-sm rounded-pill px-4">Submit Review</button>
+                    </div>
+
+                    <!-- Customer Reviews List -->
+                    <div class="text-start">
+                        <h6 class="fw-bold small text-uppercase text-muted mb-3">Customer Reviews</h6>
+                        <div id="modal-reviews-list" class="d-flex flex-column gap-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart Modal -->
     <div class="modal fade" id="cartModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 rounded-5">
