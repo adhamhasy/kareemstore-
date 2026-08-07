@@ -1,510 +1,471 @@
-// --- Mock Product Database ---
-const products = [
-    {
-        id: 1,
-        name: "iPhone 15 Pro Max",
-        category: "Phones",
-        price: 48500,
-        rating: 4.9,
-        reviewsCount: 24,
-        color: "Natural Titanium",
-        phoneType: "iOS",
-        image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&w=600&q=80",
-        description: "Apple A17 Pro chip, Titanium design, Action button, 48MP main camera with 5x Telephoto."
-    },
-    {
-        id: 2,
-        name: "Samsung Galaxy S24 Ultra",
-        category: "Phones",
-        price: 46000,
-        rating: 4.8,
-        reviewsCount: 19,
-        color: "Titanium Gray",
-        phoneType: "Android",
-        image: "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?auto=format&fit=crop&w=600&q=80",
-        description: "Galaxy AI integrated, 200MP camera system, built-in S Pen, Snapdragon 8 Gen 3."
-    },
-    {
-        id: 3,
-        name: "AirPods Pro 2 (USB-C)",
-        category: "Accessories",
-        price: 9800,
-        rating: 4.7,
-        reviewsCount: 31,
-        color: "White",
-        phoneType: "Universal",
-        image: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?auto=format&fit=crop&w=600&q=80",
-        description: "Up to 2x more Active Noise Cancellation, Transparency mode, Personalized Spatial Audio."
-    },
-    {
-        id: 4,
-        name: "MagSafe Leather Wallet",
-        category: "Accessories",
-        price: 1800,
-        rating: 4.4,
-        reviewsCount: 12,
-        color: "Saddle Brown",
-        phoneType: "iOS",
-        image: "https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&w=600&q=80",
-        description: "Crafted from specially tanned French leather, features strong built-in magnets for easy attachment."
-    }
-];
+import { db, ref, onValue, push, set } from "./firebase-config.js";
 
-// --- Application State ---
-let cart = JSON.parse(localStorage.getItem('ks_cart')) || [];
-let wishlist = JSON.parse(localStorage.getItem('ks_wishlist')) || [];
-let selectedCategory = 'All';
-let selectedSort = 'default';
-let selectedStarRating = 0;
-let deliveryMap = null;
+let cart = JSON.parse(localStorage.getItem("cart") || "{}");
+let wishlist = JSON.parse(localStorage.getItem("wishlist") || "[]");
+let recentlyViewed = JSON.parse(localStorage.getItem("recently_viewed") || "[]");
+let allProducts = [];
+let selectedCategory = "All";
+let currentSortOption = "default";
+let currentSortLabel = "Default";
+let currentSelectedStars = 0;
+let activeProductModalId = null;
+
+let mapInstance = null;
 let mapMarker = null;
+let selectedCoords = { lat: 31.2001, lng: 29.9187 };
 
-// --- Initialize App ---
-document.addEventListener('DOMContentLoaded', () => {
-    initTheme();
-    populateFilterOptions();
-    renderProducts(products);
-    updateCartCount();
-    updateWishlistCount();
+// --- Dark Mode Toggle ---
+window.toggleDarkMode = () => {
+  const currentTheme = document.documentElement.getAttribute("data-bs-theme");
+  const newTheme = currentTheme === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-bs-theme", newTheme);
+  localStorage.setItem("theme", newTheme);
+  const iconEl = document.getElementById("themeIcon");
+  if (iconEl) {
+    iconEl.className = newTheme === "dark" ? "bi bi-sun-fill fs-6" : "bi bi-moon-fill fs-6";
+  }
+};
+
+const savedTheme = localStorage.getItem("theme") || "light";
+document.documentElement.setAttribute("data-bs-theme", savedTheme);
+
+// --- Fetch Products from Firebase ---
+onValue(ref(db, "products"), (snapshot) => {
+  const data = snapshot.val();
+  allProducts = [];
+
+  if (!data) {
+    document.getElementById("product-list").innerHTML = `
+      <div class="col-12 text-center mt-5">
+          <p class="text-muted">No products found. Add some from the dashboard!</p>
+      </div>`;
+    return;
+  }
+
+  for (let id in data) {
+    allProducts.push({ id, stock: data[id].stock ?? 5, ...data[id] });
+  }
+
+  renderCategoryButtons();
+  renderSubFilters();
+  filterAndSortProducts();
+  renderRecentlyViewed();
+  updateUI();
 });
 
-// --- Theme Management ---
-function initTheme() {
-    const savedTheme = localStorage.getItem('ks_theme') || 'light';
-    document.documentElement.setAttribute('data-bs-theme', savedTheme);
-    updateThemeIcon(savedTheme);
+function getAverageRating(reviewsObj) {
+  if (!reviewsObj) return { avg: 0, count: 0 };
+  const vals = Object.values(reviewsObj);
+  if (vals.length === 0) return { avg: 0, count: 0 };
+  const sum = vals.reduce((a, b) => a + Number(b.rating || 0), 0);
+  return { avg: (sum / vals.length).toFixed(1), count: vals.length };
 }
 
-window.toggleDarkMode = function () {
-    const currentTheme = document.documentElement.getAttribute('data-bs-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-bs-theme', newTheme);
-    localStorage.setItem('ks_theme', newTheme);
-    updateThemeIcon(newTheme);
+function renderStarIcons(avgRating) {
+  const rounded = Math.round(avgRating);
+  let starsHTML = "";
+  for (let i = 1; i <= 5; i++) {
+    if (i <= rounded) {
+      starsHTML += '<i class="bi bi-star-fill text-warning"></i>';
+    } else {
+      starsHTML += '<i class="bi bi-star text-muted"></i>';
+    }
+  }
+  return starsHTML;
+}
+
+// --- Interactive Star Selection Handler ---
+window.selectStar = (rating) => {
+  currentSelectedStars = rating;
+  const stars = document.querySelectorAll("#review-stars-input .star-opt");
+  stars.forEach((star, index) => {
+    if (index < rating) {
+      star.className = "bi bi-star-fill star-opt text-warning";
+    } else {
+      star.className = "bi bi-star star-opt text-secondary";
+    }
+  });
 };
 
-function updateThemeIcon(theme) {
-    const icon = document.getElementById('themeIcon');
-    if (icon) {
-        icon.className = theme === 'dark' ? 'bi bi-sun-fill fs-6 text-warning' : 'bi bi-moon-fill fs-6';
-    }
-}
+// --- Review Submission Handler ---
+document.addEventListener("DOMContentLoaded", () => {
+  const submitBtn = document.getElementById("submit-review-btn");
+  if (submitBtn) {
+    submitBtn.addEventListener("click", async () => {
+      if (!activeProductModalId) return;
+      const author = document.getElementById("review-author").value.trim() || "Anonymous";
+      const comment = document.getElementById("review-comment").value.trim();
 
-// --- Dynamic Filter Options ---
-function populateFilterOptions() {
-    const categories = ['All', ...new Set(products.map(p => p.category))];
-    const colors = ['All', ...new Set(products.map(p => p.color))];
-    const phoneTypes = ['All', ...new Set(products.map(p => p.phoneType))];
-
-    const catContainer = document.getElementById('modal-category-filters');
-    if (catContainer) {
-        catContainer.innerHTML = categories.map(cat => `
-            <button class="btn btn-outline-dark rounded-pill px-3 btn-sm ${cat === 'All' ? 'active' : ''}" 
-                onclick="selectCategory('${cat}', this)">${cat}</button>
-        `).join('');
-    }
-
-    const colorSelect = document.getElementById('colorFilter');
-    if (colorSelect) {
-        colorSelect.innerHTML = colors.map(c => `<option value="${c}">${c === 'All' ? 'All Colors' : c}</option>`).join('');
-    }
-
-    const typeSelect = document.getElementById('phoneTypeFilter');
-    if (typeSelect) {
-        typeSelect.innerHTML = phoneTypes.map(t => `<option value="${t}">${t === 'All' ? 'All Models / Types' : t}</option>`).join('');
-    }
-}
-
-// --- Product Rendering ---
-function renderProducts(items) {
-    const grid = document.getElementById('product-list');
-    if (!grid) return;
-
-    if (items.length === 0) {
-        grid.innerHTML = `<div class="col-12 text-center py-5"><p class="text-muted fs-5">No products found matching criteria.</p></div>`;
+      if (!currentSelectedStars) {
+        alert("Please select a star rating!");
         return;
-    }
+      }
+      if (!comment) {
+        alert("Please enter your review comment!");
+        return;
+      }
 
-    grid.innerHTML = items.map(product => {
-        const isFavorited = wishlist.includes(product.id);
-        return `
-            <div class="col-6 col-md-3">
-                <div class="card product-card h-100 border-0 shadow-sm p-2 rounded-4 position-relative">
-                    <button class="btn btn-light rounded-circle p-2 position-absolute top-0 end-0 m-3 shadow-sm border-0 d-flex align-items-center justify-content-center" 
-                        style="z-index: 2;" onclick="toggleWishlist(${product.id})">
-                        <i class="bi ${isFavorited ? 'bi-heart-fill text-danger' : 'bi-heart'}"></i>
-                    </button>
-                    
-                    <img src="${product.image}" class="card-img-top rounded-4 cursor-pointer" alt="${product.name}" 
-                        style="height: 180px; object-fit: cover;" onclick="openProductModal(${product.id})">
-                    
-                    <div class="card-body d-flex flex-column justify-content-between p-2">
-                        <div>
-                            <span class="badge bg-secondary mb-1" style="font-size:0.65rem;">${product.category}</span>
-                            <h6 class="card-title fw-bold text-truncate mb-1" title="${product.name}">${product.name}</h6>
-                            <p class="card-text fw-bold mb-2">${product.price.toLocaleString()} EGP</p>
+      const reviewData = {
+        name: author,
+        rating: currentSelectedStars,
+        comment: comment,
+        date: new Date().toISOString()
+      };
+
+      await push(ref(db, `products/${activeProductModalId}/reviews`), reviewData);
+      alert("Thank you! Your review has been published.");
+      document.getElementById("review-author").value = "";
+      document.getElementById("review-comment").value = "";
+      window.selectStar(0);
+    });
+  }
+
+  // Hook up automatic image compression to file input (#imageInput)
+  const imageInput = document.getElementById("imageInput");
+  if (imageInput) {
+    imageInput.addEventListener("change", handleImageImport);
+  }
+});
+
+// --- Category & Sub-Filters ---
+function renderCategoryButtons() {
+  const container = document.getElementById("modal-category-filters");
+  if (!container) return;
+  const categories = ["All", ...new Set(allProducts.map((p) => p.category || "Other"))];
+
+  container.innerHTML = categories
+    .map((cat) => {
+      const activeClass = cat === selectedCategory ? "btn-dark active-category" : "btn-outline-dark";
+      return `<button class="btn ${activeClass} rounded-pill px-3 btn-sm" onclick="selectCategory('${cat}', this)">${cat}</button>`;
+    })
+    .join("");
+}
+
+window.selectCategory = (category, btnEl) => {
+  selectedCategory = category;
+  document.querySelectorAll("#modal-category-filters button").forEach((b) => {
+    b.className = "btn btn-outline-dark rounded-pill px-3 btn-sm";
+  });
+  btnEl.className = "btn btn-dark active-category rounded-pill px-3 btn-sm";
+  
+  renderSubFilters();
+  filterAndSortProducts();
+};
+
+function renderSubFilters() {
+  const colorSelect = document.getElementById("colorFilter");
+  const phoneTypeSelect = document.getElementById("phoneTypeFilter");
+  if (!colorSelect || !phoneTypeSelect) return;
+
+  const categoryProducts = selectedCategory === "All"
+    ? allProducts
+    : allProducts.filter((p) => (p.category || "Other") === selectedCategory);
+
+  const colorsSet = new Set();
+  const phoneTypesSet = new Set();
+
+  categoryProducts.forEach((p) => {
+    if (p.color) p.color.split(",").forEach((c) => colorsSet.add(c.trim()));
+    if (p.phoneType) p.phoneType.split(",").forEach((pt) => phoneTypesSet.add(pt.trim()));
+  });
+
+  const currentColor = colorSelect.value || "All";
+  const currentPhoneType = phoneTypeSelect.value || "All";
+
+  colorSelect.innerHTML = `<option value="All">All Colors</option>` +
+    Array.from(colorsSet).filter(Boolean).map((c) => `<option value="${c}" ${c === currentColor ? "selected" : ""}>${c}</option>`).join("");
+
+  phoneTypeSelect.innerHTML = `<option value="All">All Phone Types / Models</option>` +
+    Array.from(phoneTypesSet).filter(Boolean).map((pt) => `<option value="${pt}" ${pt === currentPhoneType ? "selected" : ""}>${pt}</option>`).join("");
+}
+
+window.updatePriceSliderDisplay = () => {
+  const slider = document.getElementById("maxPriceSlider");
+  const display = document.getElementById("priceRangeDisplay");
+  if (slider && display) {
+    display.innerText = `0 - ${Number(slider.value).toLocaleString()} EGP`;
+  }
+};
+
+// --- Sort & Reset Filters ---
+window.selectSortOption = (value, label, btnEl) => {
+  currentSortOption = value;
+  currentSortLabel = label;
+
+  document.querySelectorAll(".btn-sort-option").forEach((b) => b.classList.remove("active"));
+  btnEl.classList.add("active");
+
+  const sortModal = bootstrap.Modal.getInstance(document.getElementById("sortModal"));
+  if (sortModal) sortModal.hide();
+
+  filterAndSortProducts();
+};
+
+window.resetFilters = () => {
+  selectedCategory = "All";
+  const maxPriceSlider = document.getElementById("maxPriceSlider");
+  if (maxPriceSlider) maxPriceSlider.value = 50000;
+  updatePriceSliderDisplay();
+  const colorFilter = document.getElementById("colorFilter");
+  const phoneTypeFilter = document.getElementById("phoneTypeFilter");
+  const searchInput = document.getElementById("searchInput");
+  if (colorFilter) colorFilter.value = "All";
+  if (phoneTypeFilter) phoneTypeFilter.value = "All";
+  if (searchInput) searchInput.value = "";
+  
+  renderCategoryButtons();
+  renderSubFilters();
+  filterAndSortProducts();
+};
+
+// --- Render Products Grid ---
+window.renderProducts = (items) => {
+  const list = document.getElementById("product-list");
+  if (!list) return;
+
+  if (items.length === 0) {
+    list.innerHTML = `<div class="col-12 text-center my-5"><p class="text-muted">No products match your filter criteria.</p></div>`;
+    return;
+  }
+
+  list.innerHTML = items
+    .map((p) => {
+      const hasDiscount = p.discountPrice && Number(p.discountPrice) < Number(p.price);
+      const displayPrice = hasDiscount ? p.discountPrice : p.price;
+      const { avg } = getAverageRating(p.reviews);
+      const isWishlisted = wishlist.includes(p.id);
+      const qtyInCart = cart[p.id] ? cart[p.id].qty : 0;
+
+      let stockBadgeHTML = "";
+      const isOutOfStock = Number(p.stock) === 0;
+      if (isOutOfStock) {
+        stockBadgeHTML = `<span class="badge bg-danger position-absolute top-0 end-0 m-2">Out of Stock</span>`;
+      } else if (Number(p.stock) < 5) {
+        stockBadgeHTML = `<span class="badge bg-warning text-dark position-absolute top-0 end-0 m-2">Only ${p.stock} Left!</span>`;
+      }
+
+      return `
+        <div class="col-6 col-md-3 mb-4">
+            <div class="card border-0 bg-body-tertiary product-card h-100 d-flex flex-column position-relative" style="cursor: pointer;">
+                
+                <button class="btn btn-sm rounded-circle position-absolute top-0 start-0 m-2 z-3 d-flex align-items-center justify-content-center ${isWishlisted ? 'bg-danger text-white' : 'bg-white text-dark shadow-sm'}" 
+                        onclick="toggleWishlist('${p.id}', event)" title="Add to Wishlist">
+                    <i class="bi ${isWishlisted ? 'bi-heart-fill' : 'bi-heart'}"></i>
+                </button>
+
+                ${stockBadgeHTML}
+
+                <div style="position:relative" onclick="openProductModal('${p.id}')">
+                    <img src="${p.img}" class="card-img-top shadow-sm" style="aspect-ratio: 1/1; object-fit: cover; border-radius: 20px;">
+                    ${hasDiscount ? '<span class="badge bg-dark" style="position:absolute; bottom:10px; left:10px;">SALE</span>' : ""}
+                </div>
+
+                <div class="card-body px-2 py-2 text-center d-flex flex-column justify-content-between" onclick="openProductModal('${p.id}')">
+                    <div>
+                        <h6 class="fw-bold mb-1 small text-truncate">${p.name}</h6>
+                        <div class="small mb-1">
+                            ${renderStarIcons(avg)} 
+                            <span class="text-muted" style="font-size:0.75rem;">(${avg})</span>
                         </div>
-                        <button class="btn btn-dark w-100 rounded-pill fw-bold" onclick="addToCart(${product.id})">
-                            <i class="bi bi-bag-plus me-1"></i> Add
-                        </button>
                     </div>
+                    <p class="mb-2 small">
+                        ${hasDiscount ? `<del class="text-danger me-1">${p.price}</del>` : ""}
+                        <span class="fw-bold">${displayPrice} EGP</span>
+                    </p>
+                </div>
+
+                <button class="btn ${isOutOfStock ? 'btn-secondary' : 'btn-dark'} w-100 rounded-pill btn-sm d-flex justify-content-center align-items-center gap-1" 
+                        ${isOutOfStock ? 'disabled' : ''} 
+                        onclick="addToCart('${p.id}', '${p.name.replace(/'/g, "")}', ${displayPrice}, event)">
+                    <span>${isOutOfStock ? 'Sold Out' : 'Add to Bag'}</span>
+                    ${qtyInCart > 0 ? `<span class="badge bg-primary rounded-circle ms-1">${qtyInCart}</span>` : ''}
+                </button>
+            </div>
+        </div>`;
+    })
+    .join("");
+};
+
+// --- Filter & Sort Logic ---
+window.filterAndSortProducts = () => {
+  const searchEl = document.getElementById("searchInput");
+  const colorEl = document.getElementById("colorFilter");
+  const phoneTypeEl = document.getElementById("phoneTypeFilter");
+  const maxPriceSlider = document.getElementById("maxPriceSlider");
+
+  const term = searchEl ? searchEl.value.toLowerCase() : "";
+  const selectedColor = colorEl ? colorEl.value : "All";
+  const selectedPhoneType = phoneTypeEl ? phoneTypeEl.value : "All";
+  const maxPrice = maxPriceSlider ? Number(maxPriceSlider.value) : 50000;
+
+  const getEffectivePrice = (p) => {
+    const hasDiscount = p.discountPrice && Number(p.discountPrice) < Number(p.price);
+    return hasDiscount ? Number(p.discountPrice) : Number(p.price);
+  };
+
+  let activeFilterCount = 0;
+  if (selectedCategory !== "All") activeFilterCount++;
+  if (maxPrice < 50000) activeFilterCount++;
+  if (selectedColor !== "All") activeFilterCount++;
+  if (selectedPhoneType !== "All") activeFilterCount++;
+
+  const filterBadge = document.getElementById("filter-badge");
+  if (filterBadge) {
+    if (activeFilterCount > 0) {
+      filterBadge.innerText = activeFilterCount;
+      filterBadge.style.display = "inline-block";
+    } else {
+      filterBadge.style.display = "none";
+    }
+  }
+
+  const sortBadge = document.getElementById("sort-badge");
+  if (sortBadge) {
+    sortBadge.style.display = currentSortOption !== "default" ? "inline-block" : "none";
+  }
+
+  let filtered = allProducts.filter((p) => {
+    const effectivePrice = getEffectivePrice(p);
+    const matchesSearch = p.name.toLowerCase().includes(term);
+    const matchesCategory = selectedCategory === "All" || (p.category || "Other") === selectedCategory;
+    const matchesPrice = effectivePrice <= maxPrice;
+    const matchesColor = selectedColor === "All" || (p.color && p.color.toLowerCase().includes(selectedColor.toLowerCase()));
+    const matchesPhoneType = selectedPhoneType === "All" || (p.phoneType && p.phoneType.toLowerCase().includes(selectedPhoneType.toLowerCase()));
+
+    return matchesSearch && matchesCategory && matchesPrice && matchesColor && matchesPhoneType;
+  });
+
+  if (currentSortOption === "price-asc") filtered.sort((a, b) => getEffectivePrice(a) - getEffectivePrice(b));
+  else if (currentSortOption === "price-desc") filtered.sort((a, b) => getEffectivePrice(b) - getEffectivePrice(a));
+  else if (currentSortOption === "name-asc") filtered.sort((a, b) => a.name.localeCompare(b.name));
+  else if (currentSortOption === "name-desc") filtered.sort((a, b) => b.name.localeCompare(a.name));
+  else if (currentSortOption === "rating-desc") filtered.sort((a, b) => Number(getAverageRating(b.reviews).avg) - Number(getAverageRating(a.reviews).avg));
+  else if (currentSortOption === "rating-asc") filtered.sort((a, b) => Number(getAverageRating(a.reviews).avg) - Number(getAverageRating(b.reviews).avg));
+
+  renderActiveFilterBadges(maxPrice, selectedColor, selectedPhoneType);
+  renderProducts(filtered);
+};
+
+function renderActiveFilterBadges(maxPrice, color, phoneType) {
+  const container = document.getElementById("active-filter-tags");
+  if (!container) return;
+  let html = "";
+  if (selectedCategory !== "All") html += `<span class="badge bg-dark rounded-pill px-3 py-2 small">Cat: ${selectedCategory}</span>`;
+  if (maxPrice < 50000) html += `<span class="badge bg-dark rounded-pill px-3 py-2 small">Max: ${maxPrice.toLocaleString()} EGP</span>`;
+  if (color !== "All") html += `<span class="badge bg-dark rounded-pill px-3 py-2 small">Color: ${color}</span>`;
+  if (phoneType !== "All") html += `<span class="badge bg-dark rounded-pill px-3 py-2 small">Model: ${phoneType}</span>`;
+  if (currentSortOption !== "default") html += `<span class="badge bg-secondary rounded-pill px-3 py-2 small">Sort: ${currentSortLabel}</span>`;
+  container.innerHTML = html;
+}
+
+// --- Wishlist System ---
+window.toggleWishlist = (productId, event) => {
+  if (event) event.stopPropagation();
+  const index = wishlist.indexOf(productId);
+  if (index > -1) {
+    wishlist.splice(index, 1);
+  } else {
+    wishlist.push(productId);
+  }
+  localStorage.setItem("wishlist", JSON.stringify(wishlist));
+  updateUI();
+  filterAndSortProducts();
+};
+
+window.openWishlistModal = () => {
+  const container = document.getElementById("wishlist-items-list");
+  const wishlistedItems = allProducts.filter((p) => wishlist.includes(p.id));
+
+  if (wishlistedItems.length === 0) {
+    container.innerHTML = `<p class="text-center text-muted py-4 mb-0">Your wishlist is empty.</p>`;
+  } else {
+    container.innerHTML = wishlistedItems
+      .map((p) => `
+        <div class="d-flex justify-content-between align-items-center p-3 bg-body-tertiary rounded-4">
+            <div class="d-flex align-items-center gap-3">
+                <img src="${p.img}" class="rounded-3" style="width: 50px; height: 50px; object-fit: cover;">
+                <div>
+                    <h6 class="fw-bold mb-0 small">${p.name}</h6>
+                    <small class="text-muted">${p.price} EGP</small>
                 </div>
             </div>
-        `;
-    }).join('');
-}
+            <button class="btn btn-sm btn-outline-danger rounded-pill" onclick="toggleWishlist('${p.id}')">Remove</button>
+        </div>
+      `)
+      .join("");
+  }
 
-// --- Filtering & Sorting Core ---
-window.selectCategory = function (cat, btn) {
-    selectedCategory = cat;
-    document.querySelectorAll('#modal-category-filters button').forEach(b => b.classList.remove('active', 'btn-dark'));
-    btn.classList.add('active', 'btn-dark');
-    filterAndSortProducts();
+  new bootstrap.Modal(document.getElementById("wishlistModal")).show();
 };
 
-window.selectSortOption = function (opt, label, btn) {
-    selectedSort = opt;
-    document.querySelectorAll('.btn-sort-option').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+// --- Product Modal & Gallery ---
+window.openProductModal = (id) => {
+  const p = allProducts.find((item) => item.id === id);
+  if (!p) return;
+  activeProductModalId = id;
+  window.selectStar(0);
 
-    const badge = document.getElementById('sort-badge');
-    if (badge) badge.style.display = opt === 'default' ? 'none' : 'inline-block';
+  recentlyViewed = recentlyViewed.filter((itemId) => itemId !== id);
+  recentlyViewed.unshift(id);
+  if (recentlyViewed.length > 8) recentlyViewed.pop();
+  localStorage.setItem("recently_viewed", JSON.stringify(recentlyViewed));
+  renderRecentlyViewed();
 
-    filterAndSortProducts();
-};
+  const hasDiscount = p.discountPrice && Number(p.discountPrice) < Number(p.price);
+  const displayPrice = hasDiscount ? p.discountPrice : p.price;
+  const { avg, count } = getAverageRating(p.reviews);
 
-window.updatePriceSliderDisplay = function () {
-    const slider = document.getElementById('maxPriceSlider');
-    const display = document.getElementById('priceRangeDisplay');
-    if (slider && display) {
-        display.innerText = `0 - ${parseInt(slider.value).toLocaleString()} EGP`;
-    }
-};
+  document.getElementById("modal-img").src = p.img;
 
-window.filterAndSortProducts = function () {
-    const searchVal = (document.getElementById('searchInput')?.value || '').toLowerCase();
-    const maxPrice = parseInt(document.getElementById('maxPriceSlider')?.value || 50000);
-    const colorVal = document.getElementById('colorFilter')?.value || 'All';
-    const typeVal = document.getElementById('phoneTypeFilter')?.value || 'All';
+  const thumbnailsContainer = document.getElementById("modal-thumbnails");
+  const images = p.images ? [p.img, ...p.images] : [p.img];
+  if (images.length > 1) {
+    thumbnailsContainer.innerHTML = images
+      .map(
+        (imgSrc) => `
+        <img src="${imgSrc}" class="rounded-3 shadow-sm cursor-pointer border" style="width:50px; height:50px; object-fit:cover;" onclick="document.getElementById('modal-img').src='${imgSrc}'">
+      `
+      )
+      .join("");
+  } else {
+    thumbnailsContainer.innerHTML = "";
+  }
 
-    let filtered = products.filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(searchVal) || p.description.toLowerCase().includes(searchVal);
-        const matchesCat = selectedCategory === 'All' || p.category === selectedCategory;
-        const matchesPrice = p.price <= maxPrice;
-        const matchesColor = colorVal === 'All' || p.color === colorVal;
-        const matchesType = typeVal === 'All' || p.phoneType === typeVal;
-        return matchesSearch && matchesCat && matchesPrice && matchesColor && matchesType;
-    });
+  const stockContainer = document.getElementById("modal-stock-status");
+  const actionContainer = document.getElementById("modal-action-container");
+  const isOutOfStock = Number(p.stock) === 0;
 
-    // Sort Handler
-    switch (selectedSort) {
-        case 'price-asc': filtered.sort((a, b) => a.price - b.price); break;
-        case 'price-desc': filtered.sort((a, b) => b.price - a.price); break;
-        case 'rating-desc': filtered.sort((a, b) => b.rating - a.rating); break;
-        case 'rating-asc': filtered.sort((a, b) => a.rating - b.rating); break;
-        case 'name-asc': filtered.sort((a, b) => a.name.localeCompare(b.name)); break;
-        case 'name-desc': filtered.sort((a, b) => b.name.localeCompare(a.name)); break;
-    }
+  if (isOutOfStock) {
+    stockContainer.innerHTML = `<span class="badge bg-danger">Out of Stock</span>`;
+    actionContainer.innerHTML = `
+      <div class="bg-body-tertiary p-3 rounded-4 mb-4 text-start">
+        <h6 class="fw-bold small mb-1">Out of Stock! Get Notified:</h6>
+        <div class="d-flex gap-2 mt-2">
+          <input type="email" id="restockEmail" class="form-control rounded-pill small" placeholder="Enter your email">
+          <button class="btn btn-dark rounded-pill text-nowrap btn-sm" onclick="requestRestock('${p.id}')">Notify Me</button>
+        </div>
+      </div>`;
+  } else {
+    stockContainer.innerHTML = `<span class="badge bg-success">In Stock (${p.stock} available)</span>`;
+    actionContainer.innerHTML = `<button id="modal-add-btn" class="btn btn-luxury w-100 py-3 rounded-pill mb-4">ADD TO BAG</button>`;
+    document.getElementById("modal-add-btn").onclick = () => {
+      addToCart(p.id, p.name, displayPrice);
+      const productModalEl = document.getElementById("productModal");
+      const modalInstance = bootstrap.Modal.getInstance(productModalEl);
+      if (modalInstance) modalInstance.hide();
+    };
+  }
 
-    renderProducts(filtered);
-};
+  let tagsHTML = `<span class="badge bg-secondary">${p.category || "Other"}</span>`;
+  if (p.color) p.color.split(",").forEach((c) => (tagsHTML += `<span class="badge bg-dark">${c.trim()}</span>`));
+  document.getElementById("modal-tags").innerHTML = tagsHTML;
 
-window.resetFilters = function () {
-    selectedCategory = 'All';
-    selectedSort = 'default';
-    if (document.getElementById('searchInput')) document.getElementById('searchInput').value = '';
-    if (document.getElementById('maxPriceSlider')) document.getElementById('maxPriceSlider').value = 50000;
-    if (document.getElementById('colorFilter')) document.getElementById('colorFilter').value = 'All';
-    if (document.getElementById('phoneTypeFilter')) document.getElementById('phoneTypeFilter').value = 'All';
+  document.getElementById("modal-name").innerText = p.name;
+  document.getElementById("modal-desc").innerText = p.description || "No additional details provided.";
+  document.getElementById("modal-price-container").innerHTML = `${hasDiscount ? `<del class="text-danger me-2">${p.price} EGP</del>` : ""}<span class="fw-bold fs-5">${displayPrice} EGP</span>`;
 
-    updatePriceSliderDisplay();
-    filterAndSortProducts();
-};
+  document.getElementById("modal-avg-stars").innerHTML = renderStarIcons(avg);
+  document.getElementById("modal-rating-text").innerText = `${avg} / 5 (${count} reviews)`;
 
-// --- Wishlist Handler ---
-window.toggleWishlist = function (productId) {
-    const index = wishlist.indexOf(productId);
-    if (index === -1) {
-        wishlist.push(productId);
-        showToast("Added to favorites");
-    } else {
-        wishlist.splice(index, 1);
-        showToast("Removed from favorites");
-    }
-    localStorage.setItem('ks_wishlist', JSON.stringify(wishlist));
-    updateWishlistCount();
-    filterAndSortProducts();
-};
-
-function updateWishlistCount() {
-    const badge = document.getElementById('wishlist-count');
-    if (badge) {
-        badge.innerText = wishlist.length;
-        badge.style.display = wishlist.length > 0 ? 'inline-block' : 'none';
-    }
-}
-
-window.openWishlistModal = function () {
-    const container = document.getElementById('wishlist-items-list');
-    if (!container) return;
-
-    const favProducts = products.filter(p => wishlist.includes(p.id));
-
-    if (favProducts.length === 0) {
-        container.innerHTML = `<p class="text-center text-muted py-3">Your wishlist is empty.</p>`;
-    } else {
-        container.innerHTML = favProducts.map(p => `
-            <div class="d-flex align-items-center justify-content-between bg-body-tertiary p-2 rounded-3">
-                <div class="d-flex align-items-center gap-2">
-                    <img src="${p.image}" class="rounded" style="width: 48px; height: 48px; object-fit: cover;">
-                    <div>
-                        <h6 class="mb-0 fw-bold small">${p.name}</h6>
-                        <span class="small text-muted">${p.price.toLocaleString()} EGP</span>
-                    </div>
-                </div>
-                <button class="btn btn-sm btn-dark rounded-pill" onclick="addToCart(${p.id})">Add to Bag</button>
-            </div>
-        `).join('');
-    }
-
-    const modal = new bootstrap.Modal(document.getElementById('wishlistModal'));
-    modal.show();
-};
-
-// --- Cart System & Checkout ---
-window.addToCart = function (productId) {
-    const existing = cart.find(item => item.id === productId);
-    if (existing) {
-        existing.qty += 1;
-    } else {
-        cart.push({ id: productId, qty: 1 });
-    }
-    localStorage.setItem('ks_cart', JSON.stringify(cart));
-    updateCartCount();
-    showToast("Added to bag");
-};
-
-function updateCartCount() {
-    const badge = document.getElementById('cart-count');
-    if (badge) {
-        const totalItems = cart.reduce((acc, item) => acc + item.qty, 0);
-        badge.innerText = totalItems;
-    }
-}
-
-window.openCheckout = function () {
-    renderCartModal();
-    const modal = new bootstrap.Modal(document.getElementById('cartModal'));
-    modal.show();
-
-    setTimeout(() => initLeafletMap(), 300);
-};
-
-function renderCartModal() {
-    const list = document.getElementById('cart-items-list');
-    const totalPriceEl = document.getElementById('total-price');
-    if (!list || !totalPriceEl) return;
-
-    let total = 0;
-
-    if (cart.length === 0) {
-        list.innerHTML = `<p class="text-center text-muted py-3">Your cart is empty.</p>`;
-        totalPriceEl.innerText = '0';
-        return;
-    }
-
-    list.innerHTML = cart.map(item => {
-        const p = products.find(prod => prod.id === item.id);
-        if (!p) return '';
-        const itemTotal = p.price * item.qty;
-        total += itemTotal;
-
-        return `
-            <div class="d-flex align-items-center justify-content-between bg-body-tertiary p-3 rounded-4 mb-2">
-                <div class="d-flex align-items-center gap-3">
-                    <img src="${p.image}" class="rounded-3" style="width:50px; height:50px; object-fit:cover;">
-                    <div>
-                        <h6 class="fw-bold mb-0">${p.name}</h6>
-                        <small class="text-muted">${p.price.toLocaleString()} EGP</small>
-                    </div>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <button class="btn btn-sm btn-outline-secondary rounded-circle" onclick="updateQty(${p.id}, -1)">-</button>
-                    <span class="fw-bold">${item.qty}</span>
-                    <button class="btn btn-sm btn-outline-secondary rounded-circle" onclick="updateQty(${p.id}, 1)">+</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    totalPriceEl.innerText = total.toLocaleString();
-}
-
-window.updateQty = function (productId, delta) {
-    const idx = cart.findIndex(item => item.id === productId);
-    if (idx !== -1) {
-        cart[idx].qty += delta;
-        if (cart[idx].qty <= 0) cart.splice(idx, 1);
-    }
-    localStorage.setItem('ks_cart', JSON.stringify(cart));
-    updateCartCount();
-    renderCartModal();
-};
-
-// --- Leaflet Delivery Map (Alexandria Default) ---
-function initLeafletMap() {
-    if (deliveryMap) {
-        deliveryMap.invalidateSize();
-        return;
-    }
-
-    const alexandriaCoords = [31.2001, 29.9187];
-    deliveryMap = L.map('delivery-map').setView(alexandriaCoords, 13);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(deliveryMap);
-
-    mapMarker = L.marker(alexandriaCoords, { draggable: true }).addTo(deliveryMap);
-
-    function updateAddressInput(lat, lng) {
-        const input = document.getElementById('selectedAddress');
-        if (input) input.value = `Alexandria (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-    }
-
-    updateAddressInput(alexandriaCoords[0], alexandriaCoords[1]);
-
-    mapMarker.on('dragend', function (e) {
-        const coord = e.target.getLatLng();
-        updateAddressInput(coord.lat, coord.lng);
-    });
-
-    deliveryMap.on('click', function (e) {
-        mapMarker.setLatLng(e.latlng);
-        updateAddressInput(e.latlng.lat, e.latlng.lng);
-    });
-}
-
-// --- Order Confirmations ---
-window.confirmOrder = function () {
-    const name = document.getElementById('name')?.value;
-    const phone = document.getElementById('phone')?.value;
-
-    if (!name || !phone || cart.length === 0) {
-        alert("Please complete your name, phone number, and add products to your cart.");
-        return;
-    }
-
-    cart = [];
-    localStorage.removeItem('ks_cart');
-    updateCartCount();
-
-    const cartModal = bootstrap.Modal.getInstance(document.getElementById('cartModal'));
-    if (cartModal) cartModal.hide();
-
-    const toast = document.getElementById('successToast');
-    if (toast) {
-        toast.classList.add('show-success');
-        setTimeout(() => toast.classList.remove('show-success'), 4000);
-    }
-};
-
-window.orderViaWhatsApp = function () {
-    const name = document.getElementById('name')?.value || 'Customer';
-    const address = document.getElementById('selectedAddress')?.value || 'Alexandria';
-
-    let message = `*New Order - Kareem Store*\nName: ${name}\nDelivery: ${address}\n\n*Items:*\n`;
-    let total = 0;
-
-    cart.forEach(item => {
-        const p = products.find(prod => prod.id === item.id);
-        if (p) {
-            message += `- ${p.name} x${item.qty} (${(p.price * item.qty).toLocaleString()} EGP)\n`;
-            total += p.price * item.qty;
-        }
-    });
-
-    message += `\n*Total:* ${total.toLocaleString()} EGP`;
-    window.open(`https://wa.me/201000000000?text=${encodeURIComponent(message)}`, '_blank');
-};
-
-// --- Automatic Image Downsizing/Compression (< 1MB) ---
-export async function compressImage(file, maxSizeMB = 1) {
-    const maxSizeBytes = maxSizeMB * 1024 * 1024;
-    if (file.size <= maxSizeBytes) return file;
-
-    const image = await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = (err) => reject(err);
-        img.src = URL.createObjectURL(file);
-    });
-
-    let width = image.width;
-    let height = image.height;
-    let quality = 0.85;
-    let blob = null;
-
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    while (file.size > maxSizeBytes) {
-        width = Math.floor(width * 0.88);
-        height = Math.floor(height * 0.88);
-
-        canvas.width = width;
-        canvas.height = height;
-
-        ctx.clearRect(0, 0, width, height);
-        ctx.drawImage(image, 0, 0, width, height);
-
-        blob = await new Promise((resolve) => {
-            canvas.toBlob((b) => resolve(b), 'image/jpeg', quality);
-        });
-
-        quality = Math.max(0.4, quality - 0.05);
-
-        if (blob && blob.size <= maxSizeBytes) break;
-    }
-
-    URL.revokeObjectURL(image.src);
-
-    return new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
-        type: 'image/jpeg',
-        lastModified: Date.now()
-    });
-}
-
-// --- Product Modal & Lightbox ---
-window.openProductModal = function (productId) {
-    const p = products.find(item => item.id === productId);
-    if (!p) return;
-
-    document.getElementById('modal-img').src = p.image;
-    document.getElementById('modal-name').innerText = p.name;
-    document.getElementById('modal-category').innerText = p.category;
-    document.getElementById('modal-price-container').innerHTML = `<span class="fs-4 fw-bold">${p.price.toLocaleString()} EGP</span>`;
-    document.getElementById('modal-desc').innerText = p.description;
-
-    const addBtn = document.getElementById('modal-add-btn');
-    if (addBtn) addBtn.onclick = () => { addToCart(p.id); };
-
-    const modal = new bootstrap.Modal(document.getElementById('productModal'));
-    modal.show();
-};
-
-window.openLightbox = function (src) {
-    document.getElementById('lightbox-img').src = src;
-    const modal = new bootstrap.Modal(document.getElementById('lightboxModal'));
-    modal.show();
-};
-
-// --- Toast Utilities ---
-function showToast(msg) {
-    const toast = document.getElementById('toast');
-    if (toast) {
-        toast.innerText = msg;
-        toast.classList.add('show-toast');
-        setTimeout(() => toast.classList.remove('show-toast'), 2500);
-    }
-}
+  const reviewsListEl = document.getElementById("modal-reviews-list");
+  if (!p.reviews || Object.keys(p.reviews).length ===
