@@ -6,9 +6,14 @@
     --luxury-cream: #FDFBF7;
 }
 
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
 body {
     font-family: 'Plus Jakarta Sans', sans-serif;
     transition: background-color 0.3s ease, color 0.3s ease;
+    overflow-x: hidden;
 }
 
 /* Base Light/Dark Background Fixes */
@@ -99,13 +104,19 @@ body {
     border-color: var(--luxury-gold);
 }
 
-/* Product Cards & Badges */
+/* Product Cards & Touch States */
 .product-card {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.product-card:hover {
-    transform: translateY(-4px);
+.product-card:active {
+    transform: scale(0.98);
+}
+
+@media (min-width: 768px) {
+    .product-card:hover {
+        transform: translateY(-4px);
+    }
 }
 
 [data-bs-theme="dark"] .product-card {
@@ -223,7 +234,101 @@ body {
     transform: translateX(-50%) translateY(0);
 }
 
-/* Utility Cursor & Lightbox */
 .cursor-pointer {
     cursor: pointer;
+}
+
+/* Mobile-Specific Responsive Styling */
+@media (max-width: 576px) {
+    body {
+        font-size: 13.5px;
+    }
+
+    /* Navbar Compact Header */
+    nav.navbar {
+        padding: 0.5rem 0.75rem !important;
+    }
+
+    nav .container {
+        padding: 6px 12px !important;
+    }
+
+    .navbar-brand {
+        font-size: 0.95rem !important;
+        letter-spacing: 1px !important;
+    }
+
+    nav .btn {
+        padding: 6px 10px !important;
+    }
+
+    /* Search & Control Inputs */
+    #searchInput {
+        padding: 10px 14px !important;
+        font-size: 0.82rem !important;
+    }
+
+    .btn-dark.w-100, .btn-outline-dark.w-100 {
+        padding: 10px 6px !important;
+        font-size: 0.8rem !important;
+    }
+
+    /* 2-Column Grid Adjustments */
+    #product-list {
+        --bs-gutter-x: 0.5rem;
+        --bs-gutter-y: 0.5rem;
+    }
+
+    .product-card {
+        border-radius: 16px !important;
+    }
+
+    .product-card img {
+        border-radius: 14px !important;
+    }
+
+    .product-card .card-body {
+        padding: 6px 4px !important;
+    }
+
+    .product-card h6 {
+        font-size: 0.78rem !important;
+    }
+
+    .product-card button {
+        font-size: 0.72rem !important;
+        padding: 7px 8px !important;
+    }
+
+    /* Bottom-Sheet Style Modals */
+    .modal-dialog:not(.modal-xl) {
+        margin: 0 !important;
+        position: fixed !important;
+        bottom: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .modal-dialog:not(.modal-xl) .modal-content {
+        border-radius: 28px 28px 0 0 !important;
+        max-height: 85vh !important;
+        overflow-y: auto !important;
+    }
+
+    .modal-body {
+        padding: 1rem !important;
+    }
+
+    /* Leaflet Delivery Map Height */
+    #delivery-map {
+        height: 160px !important;
+    }
+
+    /* Toast Notifications on Mobile */
+    .luxury-toast, .success-toast {
+        width: 90%;
+        text-align: center;
+        font-size: 0.82rem;
+        padding: 10px 16px;
+    }
 }
