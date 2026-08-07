@@ -14,7 +14,7 @@ let mapInstance = null;
 let mapMarker = null;
 let selectedCoords = { lat: 31.2001, lng: 29.9187 };
 
-// --- Dark Mode Toggle ---
+// Dark Mode Toggle
 window.toggleDarkMode = () => {
   const currentTheme = document.documentElement.getAttribute("data-bs-theme");
   const newTheme = currentTheme === "dark" ? "light" : "dark";
@@ -29,7 +29,7 @@ window.toggleDarkMode = () => {
 const savedTheme = localStorage.getItem("theme") || "light";
 document.documentElement.setAttribute("data-bs-theme", savedTheme);
 
-// --- Fetch Products from Firebase ---
+// Fetch Products
 onValue(ref(db, "products"), (snapshot) => {
   const data = snapshot.val();
   allProducts = [];
@@ -74,7 +74,7 @@ function renderStarIcons(avgRating) {
   return starsHTML;
 }
 
-// --- Interactive Star Selection Handler ---
+// Interactive Star Selection Handler
 window.selectStar = (rating) => {
   currentSelectedStars = rating;
   const stars = document.querySelectorAll("#review-stars-input .star-opt");
@@ -87,7 +87,7 @@ window.selectStar = (rating) => {
   });
 };
 
-// --- Review Submission Handler ---
+// Review Submission Handler
 document.addEventListener("DOMContentLoaded", () => {
   const submitBtn = document.getElementById("submit-review-btn");
   if (submitBtn) {
@@ -119,18 +119,11 @@ document.addEventListener("DOMContentLoaded", () => {
       window.selectStar(0);
     });
   }
-
-  // Hook up automatic image compression to file input (#imageInput)
-  const imageInput = document.getElementById("imageInput");
-  if (imageInput) {
-    imageInput.addEventListener("change", handleImageImport);
-  }
 });
 
-// --- Category & Sub-Filters ---
+// Category & Sub-Filters
 function renderCategoryButtons() {
   const container = document.getElementById("modal-category-filters");
-  if (!container) return;
   const categories = ["All", ...new Set(allProducts.map((p) => p.category || "Other"))];
 
   container.innerHTML = categories
@@ -155,7 +148,6 @@ window.selectCategory = (category, btnEl) => {
 function renderSubFilters() {
   const colorSelect = document.getElementById("colorFilter");
   const phoneTypeSelect = document.getElementById("phoneTypeFilter");
-  if (!colorSelect || !phoneTypeSelect) return;
 
   const categoryProducts = selectedCategory === "All"
     ? allProducts
@@ -181,13 +173,10 @@ function renderSubFilters() {
 
 window.updatePriceSliderDisplay = () => {
   const slider = document.getElementById("maxPriceSlider");
-  const display = document.getElementById("priceRangeDisplay");
-  if (slider && display) {
-    display.innerText = `0 - ${Number(slider.value).toLocaleString()} EGP`;
-  }
+  document.getElementById("priceRangeDisplay").innerText = `0 - ${Number(slider.value).toLocaleString()} EGP`;
 };
 
-// --- Sort & Reset Filters ---
+// Sort & Reset Filters
 window.selectSortOption = (value, label, btnEl) => {
   currentSortOption = value;
   currentSortLabel = label;
@@ -203,26 +192,20 @@ window.selectSortOption = (value, label, btnEl) => {
 
 window.resetFilters = () => {
   selectedCategory = "All";
-  const maxPriceSlider = document.getElementById("maxPriceSlider");
-  if (maxPriceSlider) maxPriceSlider.value = 50000;
+  document.getElementById("maxPriceSlider").value = 50000;
   updatePriceSliderDisplay();
-  const colorFilter = document.getElementById("colorFilter");
-  const phoneTypeFilter = document.getElementById("phoneTypeFilter");
-  const searchInput = document.getElementById("searchInput");
-  if (colorFilter) colorFilter.value = "All";
-  if (phoneTypeFilter) phoneTypeFilter.value = "All";
-  if (searchInput) searchInput.value = "";
+  document.getElementById("colorFilter").value = "All";
+  document.getElementById("phoneTypeFilter").value = "All";
+  document.getElementById("searchInput").value = "";
   
   renderCategoryButtons();
   renderSubFilters();
   filterAndSortProducts();
 };
 
-// --- Render Products Grid ---
+// Render Products Grid
 window.renderProducts = (items) => {
   const list = document.getElementById("product-list");
-  if (!list) return;
-
   if (items.length === 0) {
     list.innerHTML = `<div class="col-12 text-center my-5"><p class="text-muted">No products match your filter criteria.</p></div>`;
     return;
@@ -286,7 +269,7 @@ window.renderProducts = (items) => {
     .join("");
 };
 
-// --- Filter & Sort Logic ---
+// Filter & Sort Logic
 window.filterAndSortProducts = () => {
   const searchEl = document.getElementById("searchInput");
   const colorEl = document.getElementById("colorFilter");
@@ -310,19 +293,15 @@ window.filterAndSortProducts = () => {
   if (selectedPhoneType !== "All") activeFilterCount++;
 
   const filterBadge = document.getElementById("filter-badge");
-  if (filterBadge) {
-    if (activeFilterCount > 0) {
-      filterBadge.innerText = activeFilterCount;
-      filterBadge.style.display = "inline-block";
-    } else {
-      filterBadge.style.display = "none";
-    }
+  if (activeFilterCount > 0) {
+    filterBadge.innerText = activeFilterCount;
+    filterBadge.style.display = "inline-block";
+  } else {
+    filterBadge.style.display = "none";
   }
 
   const sortBadge = document.getElementById("sort-badge");
-  if (sortBadge) {
-    sortBadge.style.display = currentSortOption !== "default" ? "inline-block" : "none";
-  }
+  sortBadge.style.display = currentSortOption !== "default" ? "inline-block" : "none";
 
   let filtered = allProducts.filter((p) => {
     const effectivePrice = getEffectivePrice(p);
@@ -348,7 +327,6 @@ window.filterAndSortProducts = () => {
 
 function renderActiveFilterBadges(maxPrice, color, phoneType) {
   const container = document.getElementById("active-filter-tags");
-  if (!container) return;
   let html = "";
   if (selectedCategory !== "All") html += `<span class="badge bg-dark rounded-pill px-3 py-2 small">Cat: ${selectedCategory}</span>`;
   if (maxPrice < 50000) html += `<span class="badge bg-dark rounded-pill px-3 py-2 small">Max: ${maxPrice.toLocaleString()} EGP</span>`;
@@ -358,7 +336,7 @@ function renderActiveFilterBadges(maxPrice, color, phoneType) {
   container.innerHTML = html;
 }
 
-// --- Wishlist System ---
+// Wishlist System
 window.toggleWishlist = (productId, event) => {
   if (event) event.stopPropagation();
   const index = wishlist.indexOf(productId);
@@ -398,7 +376,7 @@ window.openWishlistModal = () => {
   new bootstrap.Modal(document.getElementById("wishlistModal")).show();
 };
 
-// --- Product Modal & Gallery ---
+// Product Modal & Gallery
 window.openProductModal = (id) => {
   const p = allProducts.find((item) => item.id === id);
   if (!p) return;
@@ -450,9 +428,7 @@ window.openProductModal = (id) => {
     actionContainer.innerHTML = `<button id="modal-add-btn" class="btn btn-luxury w-100 py-3 rounded-pill mb-4">ADD TO BAG</button>`;
     document.getElementById("modal-add-btn").onclick = () => {
       addToCart(p.id, p.name, displayPrice);
-      const productModalEl = document.getElementById("productModal");
-      const modalInstance = bootstrap.Modal.getInstance(productModalEl);
-      if (modalInstance) modalInstance.hide();
+      bootstrap.Modal.getInstance(document.getElementById("productModal")).hide();
     };
   }
 
@@ -468,4 +444,331 @@ window.openProductModal = (id) => {
   document.getElementById("modal-rating-text").innerText = `${avg} / 5 (${count} reviews)`;
 
   const reviewsListEl = document.getElementById("modal-reviews-list");
-  if (!p.reviews || Object.keys(p.reviews).length ===
+  if (!p.reviews || Object.keys(p.reviews).length === 0) {
+    reviewsListEl.innerHTML = `<p class="small text-muted mb-0">No reviews yet.</p>`;
+  } else {
+    reviewsListEl.innerHTML = Object.values(p.reviews)
+      .reverse()
+      .map((r) => `
+        <div class="bg-body-tertiary p-3 rounded-4 mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold small">${r.name || "Anonymous"}</span>
+                <span class="small">${renderStarIcons(r.rating)}</span>
+            </div>
+            <p class="small mb-0 text-muted">${r.comment}</p>
+        </div>
+      `)
+      .join("");
+  }
+
+  new bootstrap.Modal(document.getElementById("productModal")).show();
+};
+
+window.openLightbox = (src) => {
+  document.getElementById("lightbox-img").src = src;
+  new bootstrap.Modal(document.getElementById("lightboxModal")).show();
+};
+
+window.shareProduct = () => {
+  if (navigator.share) {
+    navigator.share({
+      title: "Kareem Store",
+      text: "Check out this product on Kareem Store!",
+      url: window.location.href,
+    });
+  } else {
+    navigator.clipboard.writeText(window.location.href);
+    alert("Product link copied to clipboard!");
+  }
+};
+
+window.requestRestock = async (productId) => {
+  const emailInput = document.getElementById("restockEmail");
+  if (!emailInput || !emailInput.value) {
+    alert("Please enter a valid email address!");
+    return;
+  }
+  await push(ref(db, "restock_requests"), {
+    productId: productId,
+    email: emailInput.value,
+    date: new Date().toISOString(),
+  });
+  alert("Thank you! We will notify you when this item is back in stock.");
+  emailInput.value = "";
+};
+
+function renderRecentlyViewed() {
+  const section = document.getElementById("recently-viewed-section");
+  const container = document.getElementById("recently-viewed-list");
+  const items = allProducts.filter((p) => recentlyViewed.includes(p.id));
+
+  if (items.length === 0) {
+    section.style.display = "none";
+    return;
+  }
+
+  section.style.display = "block";
+  container.innerHTML = items
+    .map(
+      (p) => `
+    <div class="card border-0 bg-body-tertiary p-2 flex-shrink-0" style="width: 140px; cursor: pointer;" onclick="openProductModal('${p.id}')">
+      <img src="${p.img}" class="rounded-3 mb-2" style="width: 100%; height: 100px; object-fit: cover;">
+      <div class="fw-bold small text-truncate text-center">${p.name}</div>
+      <div class="small text-muted text-center">${p.price} EGP</div>
+    </div>
+  `
+    )
+    .join("");
+}
+
+// Map Integration
+function initDeliveryMap() {
+  if (mapInstance) return;
+
+  const alexCenter = [31.2001, 29.9187];
+  mapInstance = L.map("delivery-map").setView(alexCenter, 12);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap",
+  }).addTo(mapInstance);
+
+  mapMarker = L.marker(alexCenter, { draggable: true }).addTo(mapInstance);
+
+  const updateAddressDisplay = (lat, lng) => {
+    selectedCoords = { lat: lat.toFixed(5), lng: lng.toFixed(5) };
+    document.getElementById("selectedAddress").value = `Lat: ${selectedCoords.lat}, Lng: ${selectedCoords.lng}`;
+  };
+
+  updateAddressDisplay(alexCenter[0], alexCenter[1]);
+
+  mapMarker.on("dragend", function () {
+    const position = mapMarker.getLatLng();
+    updateAddressDisplay(position.lat, position.lng);
+  });
+
+  mapInstance.on("click", function (e) {
+    mapMarker.setLatLng(e.latlng);
+    updateAddressDisplay(e.latlng.lat, e.latlng.lng);
+  });
+}
+
+document.getElementById("cartModal").addEventListener("shown.bs.modal", () => {
+  initDeliveryMap();
+  if (mapInstance) mapInstance.invalidateSize();
+});
+
+// Cart & Orders
+window.addToCart = (id, name, price, event) => {
+  if (event) event.stopPropagation();
+  if (cart[id]) {
+    cart[id].qty++;
+  } else {
+    cart[id] = { name: name, price: price, qty: 1 };
+  }
+  updateUI();
+
+  const t = document.getElementById("toast");
+  t.classList.add("show-toast");
+  setTimeout(() => t.classList.remove("show-toast"), 2000);
+};
+
+function updateUI() {
+  localStorage.setItem("cart", JSON.stringify(cart));
+  const totalQty = Object.values(cart).reduce((a, b) => a + b.qty, 0);
+  document.getElementById("cart-count").innerText = totalQty;
+
+  const wishlistCountEl = document.getElementById("wishlist-count");
+  if (wishlist.length > 0) {
+    wishlistCountEl.innerText = wishlist.length;
+    wishlistCountEl.style.display = "inline-block";
+  } else {
+    wishlistCountEl.style.display = "none";
+  }
+}
+
+window.openCheckout = () => {
+  const listDiv = document.getElementById("cart-items-list");
+  const totalEl = document.getElementById("total-price");
+  let total = 0;
+
+  if (Object.keys(cart).length === 0) {
+    listDiv.innerHTML = "<p class='text-center text-muted py-4'>Your bag is empty.</p>";
+    totalEl.innerText = "0";
+  } else {
+    listDiv.innerHTML = Object.keys(cart)
+      .map((id) => {
+        const item = cart[id];
+        total += item.price * item.qty;
+        return `
+          <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-body-tertiary rounded-4">
+              <div>
+                  <div class="fw-bold small">${item.name}</div>
+                  <div class="text-muted small">${item.price} EGP</div>
+              </div>
+              <div class="d-flex align-items-center">
+                  <button class="btn btn-sm btn-outline-dark rounded-circle px-2" onclick="updateQty('${id}', -1)">-</button>
+                  <span class="mx-3 fw-bold">${item.qty}</span>
+                  <button class="btn btn-sm btn-outline-dark rounded-circle px-2" onclick="updateQty('${id}', 1)">+</button>
+              </div>
+          </div>`;
+      })
+      .join("");
+    totalEl.innerText = total;
+  }
+
+  new bootstrap.Modal(document.getElementById("cartModal")).show();
+};
+
+window.updateQty = (id, change) => {
+  cart[id].qty += change;
+  if (cart[id].qty <= 0) delete cart[id];
+  updateUI();
+  openCheckout();
+};
+
+window.orderViaWhatsApp = () => {
+  const name = document.getElementById("name").value;
+  const phone = document.getElementById("phone").value;
+  const address = document.getElementById("selectedAddress").value;
+
+  if (!name || !phone || Object.keys(cart).length === 0) {
+    alert("Please enter your name, phone number, and items to order via WhatsApp!");
+    return;
+  }
+
+  const itemsList = Object.values(cart).map((i) => `- ${i.qty}x ${i.name} (${i.price * i.qty} EGP)`).join("\n");
+  const total = Object.values(cart).reduce((a, b) => a + b.price * b.qty, 0);
+
+  const text = `New Order from Kareem Store\n\nName: ${name}\nPhone: ${phone}\nLocation: ${address}\n\nItems:\n${itemsList}\n\nTotal: ${total} EGP`;
+  const whatsappUrl = `https://wa.me/201000000000?text=${encodeURIComponent(text)}`;
+  window.open(whatsappUrl, "_blank");
+};
+
+window.confirmOrder = async () => {
+  const name = document.getElementById("name").value;
+  const phone = document.getElementById("phone").value;
+  const address = document.getElementById("selectedAddress").value;
+
+  if (!name || !phone || Object.keys(cart).length === 0) {
+    alert("Please complete your information!");
+    return;
+  }
+
+  const orderData = {
+    custName: name,
+    custPhone: "+20" + phone,
+    custLocation: address,
+    coords: selectedCoords,
+    items: Object.values(cart).map((i) => `${i.qty}x ${i.name}`).join(", "),
+    total: Object.values(cart).reduce((a, b) => a + b.price * b.qty, 0),
+    time: new Date().toLocaleString("en-EG"),
+    status: "New",
+  };
+
+  try {
+    await push(ref(db, "orders"), orderData);
+    bootstrap.Modal.getInstance(document.getElementById("cartModal")).hide();
+    document.getElementById("successToast").classList.add("show-success");
+    cart = {};
+    updateUI();
+    setTimeout(() => location.reload(), 3000);
+  } catch (e) {
+    console.error(e);
+    alert("Error sending order. Please try again!");
+  }
+};
+
+// ==========================================================
+// ADDED: Automatic Image Compression Helper (< 1 MB limit)
+// ==========================================================
+document.addEventListener("DOMContentLoaded", () => {
+  const imageInput = document.getElementById("imageInput");
+  if (!imageInput) return;
+
+  imageInput.addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const compressedFile = await compressImageByQuality(file, 1);
+      
+      // Update DOM preview if an element with id="imagePreview" exists
+      const previewEl = document.getElementById("imagePreview");
+      if (previewEl) {
+        previewEl.src = URL.createObjectURL(compressedFile);
+        previewEl.style.display = "block";
+      }
+
+      // Dispatch a custom event so upload/form handlers can access the compressed File
+      document.dispatchEvent(new CustomEvent("imageCompressed", {
+        detail: { file: compressedFile }
+      }));
+    } catch (err) {
+      console.error("Image compression error:", err);
+    }
+  });
+});
+
+/**
+ * Compresses an image below the target size (default 1 MB).
+ * Primarily reduces JPEG quality; scales down resolution only as a fallback.
+ */
+async function compressImageByQuality(file, maxSizeMB = 1) {
+  const maxSizeBytes = maxSizeMB * 1024 * 1024;
+  if (file.size <= maxSizeBytes) return file;
+
+  const image = await new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = (err) => reject(err);
+    img.src = URL.createObjectURL(file);
+  });
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  let width = image.width;
+  let height = image.height;
+
+  canvas.width = width;
+  canvas.height = height;
+  ctx.drawImage(image, 0, 0, width, height);
+
+  let quality = 0.90;
+  let blob = null;
+
+  // Decrease quality progressively without altering image resolution
+  while (quality >= 0.08) {
+    blob = await new Promise((resolve) => {
+      canvas.toBlob((b) => resolve(b), "image/jpeg", quality);
+    });
+
+    if (blob && blob.size <= maxSizeBytes) break;
+    quality -= 0.08;
+  }
+
+  // Fallback: Scale down resolution slightly if lowest quality is still > 1 MB
+  while (blob && blob.size > maxSizeBytes) {
+    width = Math.floor(width * 0.85);
+    height = Math.floor(height * 0.85);
+
+    canvas.width = width;
+    canvas.height = height;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(image, 0, 0, width, height);
+
+    blob = await new Promise((resolve) => {
+      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.40);
+    });
+  }
+
+  URL.revokeObjectURL(image.src);
+
+  const originalName = file.name.substring(0, file.name.lastIndexOf(".")) || file.name;
+  return new File([blob], `${originalName}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now()
+  });
+}
