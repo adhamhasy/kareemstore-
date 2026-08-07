@@ -1,73 +1,176 @@
-<!DOCTYPE html>
+
+
+</html><!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kareem | Alexandria</title>
+    <title>Kareem Store | Alexandria</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
     <div id="toast" class="luxury-toast">Added to cart</div>
-    <div id="successToast" class="success-toast"> Ordered Successfully! We will contact you soon.</div>
+    <div id="successToast" class="success-toast">Ordered Successfully! We will contact you soon.</div>
 
     <!-- Navbar -->
-    <nav class="navbar sticky-top p-3">
-        <div class="container bg-white rounded-pill shadow-sm py-2 px-4">
-            <a class="navbar-brand fw-bold text-dark" href="#" style="letter-spacing:4px">Kareem Store</a>
-            <button class="btn border-0" onclick="openCheckout()">
-                <span style="font-size: 1.5rem;">🛒</span>
-                <span id="cart-count" class="badge bg-dark rounded-pill">0</span>
-            </button>
+    <nav class="navbar sticky-top p-3 shadow-sm">
+        <div class="container bg-body-tertiary rounded-pill shadow-sm py-2 px-4 d-flex justify-content-between align-items-center">
+            <a class="navbar-brand fw-bold" href="#" style="letter-spacing:3px">Kareem Store</a>
+            
+            <div class="d-flex align-items-center gap-2">
+                <!-- Theme Toggle Button -->
+                <button class="btn btn-outline-secondary rounded-circle p-2 d-flex align-items-center justify-content-center" id="themeToggleBtn" onclick="toggleDarkMode()" title="Toggle Dark/Light Mode">
+                    <i id="themeIcon" class="bi bi-moon-fill fs-6"></i>
+                </button>
+                <!-- Wishlist Button -->
+                <button class="btn btn-outline-danger rounded-circle p-2 position-relative d-flex align-items-center justify-content-center" onclick="openWishlistModal()" title="Wishlist">
+                    <i class="bi bi-heart-fill fs-6"></i>
+                    <span id="wishlist-count" class="badge bg-danger rounded-circle position-absolute top-0 start-100 translate-middle" style="display:none;">0</span>
+                </button>
+                <!-- Cart Button -->
+                <button class="btn btn-dark rounded-pill px-3 py-2 d-flex align-items-center gap-2" onclick="openCheckout()">
+                    <i class="bi bi-bag-fill fs-6"></i>
+                    <span id="cart-count" class="badge bg-light text-dark rounded-pill">0</span>
+                </button>
+            </div>
         </div>
     </nav>
 
-    <!-- Search & Sort Controls -->
+    <!-- Search & Controls -->
     <div class="container mt-4">
-        <div class="row g-2">
-            <div class="col-md-8">
+        <div class="row g-2 align-items-center">
+            <div class="col-6 col-md-8">
                 <input type="text" id="searchInput" class="form-control rounded-pill border-0 shadow-sm p-3"
                     placeholder="Search products..." onkeyup="filterAndSortProducts()">
             </div>
-            <div class="col-md-4">
-                <select id="sortInput" class="form-select rounded-pill border-0 shadow-sm p-3" onchange="filterAndSortProducts()">
-                    <option value="default">Sort by: Default</option>
-                    <option value="rating-desc">Rating: High to Low ★</option>
-                    <option value="rating-asc">Rating: Low to High ☆</option>
-                    <option value="price-asc">Price: Low to High</option>
-                    <option value="price-desc">Price: High to Low</option>
-                    <option value="name-asc">Name: A to Z</option>
-                    <option value="name-desc">Name: Z to A</option>
-                </select>
+            <!-- Filter Button -->
+            <div class="col-3 col-md-2">
+                <button class="btn btn-dark w-100 rounded-pill p-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm position-relative" data-bs-toggle="modal" data-bs-target="#filterModal">
+                    <i class="bi bi-sliders"></i> <span class="d-none d-sm-inline">Filter</span>
+                    <span id="filter-badge" class="badge bg-danger rounded-pill" style="display:none;">0</span>
+                </button>
+            </div>
+            <!-- Sort Button -->
+            <div class="col-3 col-md-2">
+                <button class="btn btn-dark w-100 rounded-pill p-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm position-relative" data-bs-toggle="modal"  data-bs-target="#sortModal">
+                    <i class="bi bi-arrow-down-up"></i> <span class="d-none d-sm-inline">Sort</span>
+                    <span id="sort-badge" class="badge bg-primary rounded-pill" style="display:none;">!</span>
+                </button>
             </div>
         </div>
 
-        <!-- Dynamic Category Filter Buttons -->
-        <div class="d-flex flex-wrap gap-2 mt-3" id="category-filters">
-            <button class="btn btn-dark rounded-pill px-4 btn-sm active-category" onclick="selectCategory('All', this)">All</button>
-        </div>
+        <div id="active-filter-tags" class="d-flex flex-wrap gap-2 mt-3"></div>
+    </div>
 
-        <!-- Dynamic Sub-Filters (Color & Phone Type / Model) -->
-        <div class="row g-2 mt-2" id="sub-filters-container">
-            <div class="col-6 col-md-4">
-                <select id="colorFilter" class="form-select form-select-sm rounded-pill border-0 shadow-sm px-3 py-2 bg-white" onchange="filterAndSortProducts()">
-                    <option value="All">All Colors</option>
-                </select>
+    <!-- Filter Modal Window -->
+    <div class="modal fade" id="filterModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-5">
+                <div class="modal-header border-0 pb-0 px-4 pt-4">
+                    <h5 class="fw-bold modal-title d-flex align-items-center gap-2">Filter Products <i class="bi bi-sliders"></i></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+
+                    <!-- Category Filter -->
+                    <div class="mb-4">
+                        <label class="fw-bold small text-muted text-uppercase d-block mb-2">Category</label>
+                        <div class="d-flex flex-wrap gap-2" id="modal-category-filters">
+                            <button class="btn btn-dark rounded-pill px-3 btn-sm active-category" onclick="selectCategory('All', this)">All</button>
+                        </div>
+                    </div>
+
+                    <!-- Price Slider -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="fw-bold small text-muted text-uppercase mb-0">Max Price (EGP)</label>
+                            <span id="priceRangeDisplay" class="fw-bold text-primary small">0 - 50,000 EGP</span>
+                        </div>
+                        <input type="range" class="form-range" id="maxPriceSlider" min="0" max="50000" step="500" value="50000" oninput="updatePriceSliderDisplay(); filterAndSortProducts();">
+                    </div>
+
+                    <!-- Color Sub-Filter -->
+                    <div class="mb-4">
+                        <label class="fw-bold small text-muted text-uppercase d-block mb-2">Color</label>
+                        <select id="colorFilter" class="form-select rounded-pill border-0 bg-light p-3 small" onchange="filterAndSortProducts()">
+                            <option value="All">All Colors</option>
+                        </select>
+                    </div>
+
+                    <!-- Phone Type / Model Sub-Filter -->
+                    <div class="mb-4">
+                        <label class="fw-bold small text-muted text-uppercase d-block mb-2">Phone Model / Type</label>
+                        <select id="phoneTypeFilter" class="form-select rounded-pill border-0 bg-light p-3 small" onchange="filterAndSortProducts()">
+                            <option value="All">All Phone Types / Models</option>
+                        </select>
+                    </div>
+
+                    <div class="d-flex gap-2 pt-2">
+                        <button class="btn btn-outline-secondary w-50 rounded-pill py-2 fw-bold" onclick="resetFilters()">Reset All</button>
+                        <button class="btn btn-dark w-50 rounded-pill py-2 fw-bold" data-bs-dismiss="modal">Apply Filters</button>
+                    </div>
+                </div>
             </div>
-            <div class="col-6 col-md-4">
-                <select id="phoneTypeFilter" class="form-select form-select-sm rounded-pill border-0 shadow-sm px-3 py-2 bg-white" onchange="filterAndSortProducts()">
-                    <option value="All">All Phone Types / Models</option>
-                </select>
+        </div>
+    </div>
+
+    <!-- Sort Modal Window -->
+    <div class="modal fade" id="sortModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 rounded-5">
+                <div class="modal-header border-0 pb-0 px-4 pt-4">
+                    <h5 class="fw-bold modal-title d-flex align-items-center gap-2">Sort By <i class="bi bi-arrow-down-up"></i></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4 d-flex flex-column gap-2">
+                    <button class="btn btn-sort-option active text-start py-3 px-3 rounded-4 fw-bold" onclick="selectSortOption('default', 'Default', this)">Default</button>
+                    <button class="btn btn-sort-option text-start py-3 px-3 rounded-4 fw-bold" onclick="selectSortOption('rating-desc', 'Rating: High to Low', this)">Rating: High to Low <i class="bi bi-star-fill text-warning ms-1"></i></button>
+                    <button class="btn btn-sort-option text-start py-3 px-3 rounded-4 fw-bold" onclick="selectSortOption('rating-asc', 'Rating: Low to High', this)">Rating: Low to High <i class="bi bi-star text-muted ms-1"></i></button>
+                    <button class="btn btn-sort-option text-start py-3 px-3 rounded-4 fw-bold" onclick="selectSortOption('price-asc', 'Price: Low to High', this)">Price: Low to High</button>
+                    <button class="btn btn-sort-option text-start py-3 px-3 rounded-4 fw-bold" onclick="selectSortOption('price-desc', 'Price: High to Low', this)">Price: High to Low</button>
+                    <button class="btn btn-sort-option text-start py-3 px-3 rounded-4 fw-bold" onclick="selectSortOption('name-asc', 'Name: A to Z', this)">Name: A to Z</button>
+                    <button class="btn btn-sort-option text-start py-3 px-3 rounded-4 fw-bold" onclick="selectSortOption('name-desc', 'Name: Z to A', this)">Name: Z to A</button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Product Grid -->
     <div class="container my-5">
-        <div class="row g-3" id="product-list"></div>
+        <div class="row g-3" id="product-list">
+            <div class="col-6 col-md-3 mb-4 skeleton-card-item">
+                <div class="skeleton-img"></div>
+                <div class="skeleton-text mt-2"></div>
+                <div class="skeleton-text short"></div>
+            </div>
+            <div class="col-6 col-md-3 mb-4 skeleton-card-item">
+                <div class="skeleton-img"></div>
+                <div class="skeleton-text mt-2"></div>
+                <div class="skeleton-text short"></div>
+            </div>
+            <div class="col-6 col-md-3 mb-4 skeleton-card-item">
+                <div class="skeleton-img"></div>
+                <div class="skeleton-text mt-2"></div>
+                <div class="skeleton-text short"></div>
+            </div>
+            <div class="col-6 col-md-3 mb-4 skeleton-card-item">
+                <div class="skeleton-img"></div>
+                <div class="skeleton-text mt-2"></div>
+                <div class="skeleton-text short"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recently Viewed Section -->
+    <div class="container my-5" id="recently-viewed-section" style="display:none;">
+        <h5 class="fw-bold mb-3">Recently Viewed</h5>
+        <div class="d-flex gap-3 overflow-auto pb-3" id="recently-viewed-list"></div>
     </div>
 
     <!-- Product Details Modal -->
@@ -75,40 +178,52 @@
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 rounded-5 overflow-hidden">
                 <div class="modal-body p-4 text-center">
-                    <img id="modal-img" src="" class="img-fluid rounded-4 mb-3" style="max-height: 280px; object-fit: cover; width: 100%;">
+                    
+                    <div class="position-relative d-inline-block w-100 mb-2">
+                        <img id="modal-img" src="" class="img-fluid rounded-4 mb-2 cursor-pointer" style="max-height: 280px; object-fit: cover; width: 100%;" onclick="openLightbox(this.src)" title="Click to zoom">
+                        <button class="btn btn-light rounded-circle position-absolute top-0 end-0 m-2 shadow-sm d-flex align-items-center justify-content-center p-2" onclick="shareProduct()" title="Share product">
+                            <i class="bi bi-share-fill"></i>
+                        </button>
+                    </div>
+
+                    <div id="modal-thumbnails" class="d-flex justify-content-center gap-2 mb-3 overflow-auto"></div>
+
                     <div class="d-flex justify-content-center gap-2 mb-2" id="modal-tags">
                         <span id="modal-category" class="badge bg-secondary">Category</span>
                     </div>
+
                     <h4 id="modal-name" class="fw-bold mb-1">Product Name</h4>
-                    <p id="modal-price-container" class="mb-2"></p>
-                    
-                    <!-- Visible Average Rating Display -->
+                    <p id="modal-price-container" class="mb-1"></p>
+
+                    <div id="modal-stock-status" class="mb-2"></div>
+
                     <div class="mb-3">
-                        <span id="modal-avg-stars" class="text-warning fs-5"></span>
+                        <span id="modal-avg-stars" class="fs-5"></span>
                         <span id="modal-rating-text" class="small text-muted ms-1"></span>
                     </div>
 
-                    <!-- Description & Specs -->
-                    <div class="text-start bg-light p-3 rounded-4 mb-4">
+                    <div class="text-start bg-body-tertiary p-3 rounded-4 mb-4">
                         <h6 class="fw-bold small text-uppercase text-muted mb-1">Product Details & Specs</h6>
-                        <p id="modal-desc" class="small mb-0 text-dark" style="white-space: pre-line;">No additional details provided.</p>
+                        <p id="modal-desc" class="small mb-0" style="white-space: pre-line;">No additional details provided.</p>
                     </div>
 
-                    <button id="modal-add-btn" class="btn btn-luxury w-100 py-3 rounded-pill mb-4">ADD TO BAG</button>
+                    <div id="modal-action-container">
+                        <button id="modal-add-btn" class="btn btn-luxury w-100 py-3 rounded-pill mb-4">ADD TO BAG</button>
+                    </div>
 
                     <hr>
 
-                    <!-- Rating & Comment Section (One per customer) -->
+                    <!-- Rating & Comment Section -->
                     <div id="review-form-container" class="text-start bg-cream p-3 rounded-4 mb-4">
                         <h6 class="fw-bold small text-uppercase text-muted mb-2">Leave a Review</h6>
                         <div class="mb-2">
                             <span class="small fw-bold me-2">Your Rating:</span>
-                            <div id="review-stars-input" class="star-rating d-inline-block" style="font-size: 1.4rem; cursor: pointer;">
-                                <span onclick="selectStar(1)" class="star-opt text-secondary">★</span>
-                                <span onclick="selectStar(2)" class="star-opt text-secondary">★</span>
-                                <span onclick="selectStar(3)" class="star-opt text-secondary">★</span>
-                                <span onclick="selectStar(4)" class="star-opt text-secondary">★</span>
-                                <span onclick="selectStar(5)" class="star-opt text-secondary">★</span>
+                            <div id="review-stars-input" class="star-rating d-inline-block" style="font-size: 1.3rem; cursor: pointer;">
+                                <i class="bi bi-star star-opt text-secondary" onclick="selectStar(1)"></i>
+                                <i class="bi bi-star star-opt text-secondary" onclick="selectStar(2)"></i>
+                                <i class="bi bi-star star-opt text-secondary" onclick="selectStar(3)"></i>
+                                <i class="bi bi-star star-opt text-secondary" onclick="selectStar(4)"></i>
+                                <i class="bi bi-star star-opt text-secondary" onclick="selectStar(5)"></i>
                             </div>
                         </div>
                         <input type="text" id="review-author" class="form-control mb-2 rounded-pill small" placeholder="Your Name (Optional)">
@@ -116,7 +231,6 @@
                         <button id="submit-review-btn" class="btn btn-dark btn-sm rounded-pill px-4">Submit Review</button>
                     </div>
 
-                    <!-- Customer Reviews List -->
                     <div class="text-start">
                         <h6 class="fw-bold small text-uppercase text-muted mb-3">Customer Reviews</h6>
                         <div id="modal-reviews-list" class="d-flex flex-column gap-2"></div>
@@ -126,85 +240,59 @@
         </div>
     </div>
 
-    <!-- Cart Modal -->
+    <!-- Image Lightbox Modal -->
+    <div class="modal fade" id="lightboxModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content bg-transparent border-0 text-center">
+                <div class="modal-body p-0 position-relative">
+                    <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3 z-3" data-bs-dismiss="modal"></button>
+                    <img id="lightbox-img" src="" class="img-fluid rounded-4 shadow-lg" style="max-height: 85vh; object-fit: contain;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Wishlist Modal -->
+    <div class="modal fade" id="wishlistModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 rounded-5">
+                <div class="modal-header border-0 pb-0 px-4 pt-4">
+                    <h5 class="fw-bold modal-title d-flex align-items-center gap-2">Your Favorites <i class="bi bi-heart-fill text-danger"></i></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="wishlist-items-list" class="d-flex flex-column gap-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart & Checkout Modal -->
     <div class="modal fade" id="cartModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content border-0 rounded-5">
                 <div class="modal-body p-4">
-                    <h5 class="fw-bold mb-4">Your cart Items</h5>
+                    <h5 class="fw-bold mb-4">Your Cart Items</h5>
                     <div id="cart-items-list" class="mb-4"></div>
+                    
                     <div class="row g-3">
                         <div class="col-md-7">
-                            <input type="text" id="name" class="form-control mb-2 luxury-input bg-light border-0"
-                                placeholder="Full Name">
-                            <input type="tel" id="phone" class="form-control mb-2 luxury-input bg-light border-0"
-                                placeholder="Phone (01xxxxxxxxx)">
-                            <select id="area" class="form-select luxury-input bg-light border-0">
-                                <option value="" disabled selected>Select Delivery Area</option>
-
-                                <optgroup label="East (Montaza/Asafra/Sidi Beshr)">
-                                    <option>Abu Qir</option>
-                                    <option>Maamoura</option>
-                                    <option>Montaza</option>
-                                    <option>Mandara Bahary</option>
-                                    <option>Mandara Kebly</option>
-                                    <option>Asafra Bahary</option>
-                                    <option>Asafra Kebly</option>
-                                    <option>Miami</option>
-                                    <option>Sidi Beshr Bahary</option>
-                                    <option>Sidi Beshr Kebly</option>
-                                    <option>Victoria</option>
-                                    <option>Siouf</option>
-                                    <option>Awayed</option>
-                                </optgroup>
-
-                                <optgroup label="Central (Smouha/Sidi Gaber/Glim)">
-                                    <option>Loran</option>
-                                    <option>San Stefano</option>
-                                    <option>Glim</option>
-                                    <option>Zizinia</option>
-                                    <option>Bakous</option>
-                                    <option>Saba Pasha</option>
-                                    <option>Roushdy</option>
-                                    <option>Kafr Abdo</option>
-                                    <option>Stanley</option>
-                                    <option>Sidi Gaber</option>
-                                    <option>Smouha</option>
-                                    <option>Cleopatra</option>
-                                    <option>Sporting</option>
-                                    <option>Ibrahimeya</option>
-                                    <option>Camp Shezar</option>
-                                    <option>Azarita</option>
-                                </optgroup>
-
-                                <optgroup label="Downtown & West">
-                                    <option>Manshia</option>
-                                    <option>Bahary (Anfoushi)</option>
-                                    <option>Gomrok</option>
-                                    <option>Labban</option>
-                                    <option>Attarin</option>
-                                    <option>Moharem Bek</option>
-                                    <option>Hadara</option>
-                                    <option>Karmouz</option>
-                                    <option>Amreya</option>
-                                </optgroup>
-
-                                <optgroup label="Agami & Far West">
-                                    <option>Dekheila</option>
-                                    <option>Bitash (Agami)</option>
-                                    <option>Hanooville (Agami)</option>
-                                    <option>Abu Talat</option>
-                                    <option>October (Agami)</option>
-                                    <option>King Mariout</option>
-                                    <option>Borg El Arab</option>
-                                </optgroup>
-                            </select>
+                            <input type="text" id="name" class="form-control mb-2 luxury-input bg-body-tertiary border-0 rounded-pill" placeholder="Full Name">
+                            <input type="tel" id="phone" class="form-control mb-2 luxury-input bg-body-tertiary border-0 rounded-pill" placeholder="Phone (01xxxxxxxxx)">
+                            
+                            <div class="mb-2">
+                                <label class="fw-bold small text-muted mb-1 d-block"><i class="bi bi-geo-alt-fill text-danger"></i> Tap/Drag Pin to Select Delivery Location in Alexandria:</label>
+                                <div id="delivery-map" class="rounded-4 mb-2 shadow-sm" style="height: 220px; width: 100%;"></div>
+                                <input type="text" id="selectedAddress" class="form-control bg-body-tertiary border-0 rounded-pill small" readonly placeholder="Selected Location Coordinates / Area">
+                            </div>
                         </div>
                         <div class="col-md-5">
                             <div class="p-4 bg-cream rounded-4 text-center">
                                 <h4 class="fw-bold"><span id="total-price">0</span> EGP</h4>
-                                <button class="btn btn-dark w-100 mt-2 rounded-pill py-2 fw-bold"
-                                    onclick="confirmOrder()">PLACE ORDER</button>
+                                <button class="btn btn-dark w-100 mt-2 rounded-pill py-2 fw-bold" onclick="confirmOrder()">PLACE ORDER</button>
+                                <button class="btn btn-success w-100 mt-2 rounded-pill py-2 fw-bold d-flex align-items-center justify-content-center gap-2" onclick="orderViaWhatsApp()">
+                                    <i class="bi bi-whatsapp"></i> Order via WhatsApp
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -213,8 +301,7 @@
         </div>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="script.js"></script>
 </body>
-
-</html>
