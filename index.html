@@ -1,6 +1,4 @@
-
-
-</html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -45,22 +43,25 @@
     <!-- Search & Controls -->
     <div class="container mt-4">
         <div class="row g-2 align-items-center">
-            <div class="col-6 col-md-8">
+            <!-- Full-width Search Bar on Mobile -->
+            <div class="col">
                 <input type="text" id="searchInput" class="form-control rounded-pill border-0 shadow-sm p-3"
                     placeholder="Search products..." onkeyup="filterAndSortProducts()">
             </div>
-            <!-- Filter Button -->
-            <div class="col-3 col-md-2">
-                <button class="btn btn-dark w-100 rounded-pill p-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm position-relative" data-bs-toggle="modal" data-bs-target="#filterModal">
-                    <i class="bi bi-sliders"></i> <span class="d-none d-sm-inline">Filter</span>
-                    <span id="filter-badge" class="badge bg-danger rounded-pill" style="display:none;">0</span>
+            <!-- Circular Filter Button on Mobile -->
+            <div class="col-auto">
+                <button class="btn btn-dark rounded-pill p-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm position-relative filter-sort-btn" data-bs-toggle="modal" data-bs-target="#filterModal" title="Filter Products">
+                    <i class="bi bi-sliders fs-6"></i>
+                    <span class="d-none d-md-inline">Filter</span>
+                    <span id="filter-badge" class="badge bg-danger rounded-circle position-absolute top-0 start-100 translate-middle" style="display:none;">0</span>
                 </button>
             </div>
-            <!-- Sort Button -->
-            <div class="col-3 col-md-2">
-                <button class="btn btn-dark w-100 rounded-pill p-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm position-relative" data-bs-toggle="modal"  data-bs-target="#sortModal">
-                    <i class="bi bi-arrow-down-up"></i> <span class="d-none d-sm-inline">Sort</span>
-                    <span id="sort-badge" class="badge bg-primary rounded-pill" style="display:none;">!</span>
+            <!-- Circular Sort Button on Mobile -->
+            <div class="col-auto">
+                <button class="btn btn-outline-dark rounded-pill p-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm position-relative filter-sort-btn" data-bs-toggle="modal" data-bs-target="#sortModal" title="Sort Products">
+                    <i class="bi bi-arrow-down-up fs-6"></i>
+                    <span class="d-none d-md-inline">Sort</span>
+                    <span id="sort-badge" class="badge bg-primary rounded-circle position-absolute top-0 start-100 translate-middle" style="display:none;">!</span>
                 </button>
             </div>
         </div>
@@ -305,3 +306,5 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="script.js"></script>
 </body>
+
+</html>
