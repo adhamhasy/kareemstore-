@@ -3,7 +3,10 @@ import { db, ref, onChildAdded, onChildChanged, onChildRemoved, push, set } from
 let cart = JSON.parse(localStorage.getItem("cart") || "{}");
 let wishlist = JSON.parse(localStorage.getItem("wishlist") || "[]");
 let recentlyViewed = JSON.parse(localStorage.getItem("recently_viewed") || "[]");
-let allProducts = [];
+
+// 1. Load products instantly from device storage (LocalStorage) if available
+let allProducts = JSON.parse(localStorage.getItem("cached_products") || "[]");
+
 let selectedCategory = "All";
 let currentSortOption = "default";
 let currentSortLabel = "Default";
@@ -29,24 +32,45 @@ window.toggleDarkMode = () => {
 const savedTheme = localStorage.getItem("theme") || "light";
 document.documentElement.setAttribute("data-bs-theme", savedTheme);
 
-// Progressive Firebase Streaming (Child Listeners)
+// If cached products exist, render them instantly on startup!
+document.addEventListener("DOMContentLoaded", () => {
+  if (allProducts.length > 0) {
+    refreshUIGradual();
+  }
+});
+
+// Helper function to save products to device storage
+function saveProductsToCache() {
+  try {
+    localStorage.setItem("cached_products", JSON.stringify(allProducts));
+  } catch (e) {
+    console.warn("Storage quota limit reached:", e);
+  }
+}
+
+// Progressive Firebase Streaming & Price/Data Sync
 const productsRef = ref(db, "products");
 
 onChildAdded(productsRef, (snapshot) => {
   const id = snapshot.key;
   const data = snapshot.val();
-  if (!allProducts.some((p) => p.id === id)) {
+  const existingIndex = allProducts.findIndex((p) => p.id === id);
+  
+  if (existingIndex === -1) {
     allProducts.push({ id, stock: data.stock ?? 5, ...data });
+    saveProductsToCache();
     refreshUIGradual();
   }
 });
 
+// Automatically updates prices, stock, or details if changed in Firebase
 onChildChanged(productsRef, (snapshot) => {
   const id = snapshot.key;
   const data = snapshot.val();
   const index = allProducts.findIndex((p) => p.id === id);
   if (index !== -1) {
     allProducts[index] = { id, stock: data.stock ?? 5, ...data };
+    saveProductsToCache();
     refreshUIGradual();
   }
 });
@@ -54,6 +78,7 @@ onChildChanged(productsRef, (snapshot) => {
 onChildRemoved(productsRef, (snapshot) => {
   const id = snapshot.key;
   allProducts = allProducts.filter((p) => p.id !== id);
+  saveProductsToCache();
   refreshUIGradual();
 });
 
